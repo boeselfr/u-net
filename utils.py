@@ -91,3 +91,30 @@ class MyGenerator(Sequence):
             arr = np.array(img.resize(self.img_size, resample=Image.NEAREST))
             y[j] = normalize(arr, th=0.5)
         return x, y
+
+
+class ClassGenerator(Sequence):
+    def __init__(self, batch_size, img_size, input_img_paths):
+        self.batch_size = batch_size
+        self.img_size = img_size
+        self.input_img_paths = input_img_paths
+        self.labels_img_paths = labels_img_paths
+
+    def __len__(self):
+        return len(self.labels_img_paths) // self.batch_size
+
+    def __getitem__(self, idx):
+        i = idx * self.batch_size
+        batch_input_img_paths = self.input_img_paths[i : i + self.batch_size]
+        batch_label_img_paths = self.labels_img_paths[i : i + self.batch_size]
+        x = np.zeros((self.batch_size,) + self.img_size, dtype="float32")
+        for j, path in enumerate(batch_input_img_paths):
+            img = Image.open(path)
+            arr = np.array(img.resize(self.img_size, resample=Image.NEAREST))
+            x[j] = normalize(arr)
+        y = np.zeros((self.batch_size,) + self.img_size, dtype="float32")
+        for j, path in enumerate(batch_label_img_paths):
+            img = Image.open(path)
+            arr = np.array(img.resize(self.img_size, resample=Image.NEAREST))
+            y[j] = normalize(arr, th=0.5)
+        return x, y
