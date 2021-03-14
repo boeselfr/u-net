@@ -93,7 +93,7 @@ model.compile(optimizer=adam,
 model.summary()
 
 drop_alpha = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=5)
-checkpoint = ModelCheckpoint('parenchyma_model.h5', monitor='val_acc', verbose=0, 
+checkpoint = ModelCheckpoint('colon_classification.h5', monitor='val_acc', verbose=0, 
 							  save_best_only=True, save_weights_only=False, mode='auto', period=1)
 
 #Train
