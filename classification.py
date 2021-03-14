@@ -10,6 +10,7 @@ from matplotlib import pyplot as plt
 import json
 from tensorflow.keras.callbacks import ReduceLROnPlateau, ModelCheckpoint
 from tensorflow.keras.regularizers import l1_l2
+from utils import normalize
 
 
 data_path = "C:/Users/Karol/Desktop/ML4HC/Project_1/images/classification"
@@ -21,18 +22,29 @@ l1 = 0.00001
 l2 = 0.000001
 dropout = 0.5
 
-train_generator = ImageDataGenerator(rescale=1 / 255.0,
+
+train_generator = ImageDataGenerator(preprocessing_function=normalize,
                                      width_shift_range=0.05,
                                      height_shift_range=0.05,
                                      zoom_range=0.001,
                                      horizontal_flip=True,
-                                     rotation_range=30 )
+                                     rotation_range=30,
+                                     validation_split=0.2 )
 
 train_data = train_generator.flow_from_directory(directory=data_path,
                                                     batch_size=batch,
                                                     target_size=target_size,
                                                     color_mode='grayscale',
-                                                    shuffle=True)
+                                                    shuffle=True,
+                                                    class_mode='binary')
+
+
+# verify generator
+# images, labels = train_data.__getitem__(0)
+# for x, y in zip(images, labels):
+#     print(y)
+#     plt.imshow(x[:,:,0], cmap='gray')
+#     plt.show()
 
 
 reg = l1_l2(l1=l1, l2=l2)

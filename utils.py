@@ -51,17 +51,15 @@ def f1(y_true, y_pred):
     return 2*((precision*recall)/(precision+recall+K.epsilon()))
 
 
-def normalize(arr, th=None):
+def normalize(arr):
+    arr = arr[:, :, 0]
     arr_min = np.min(arr)
     arr_max = np.max(arr)
     if not arr_max:
-        arr = 0
-        return arr
-    arr = arr / (arr_max-arr_min)
-    if th:
-        arr[arr<=th] = 0
-        arr[arr>th] = 1
-    return arr
+        arr[True] = 0
+    else:
+        arr = arr / (arr_max-arr_min)
+    return arr.reshape([arr.shape[0], arr.shape[1], 1])
 
 
 class MyGenerator(Sequence):
@@ -93,28 +91,25 @@ class MyGenerator(Sequence):
         return x, y
 
 
-class ClassGenerator(Sequence):
-    def __init__(self, batch_size, img_size, input_img_paths):
-        self.batch_size = batch_size
-        self.img_size = img_size
-        self.input_img_paths = input_img_paths
-        self.labels_img_paths = labels_img_paths
-
-    def __len__(self):
-        return len(self.labels_img_paths) // self.batch_size
-
-    def __getitem__(self, idx):
-        i = idx * self.batch_size
-        batch_input_img_paths = self.input_img_paths[i : i + self.batch_size]
-        batch_label_img_paths = self.labels_img_paths[i : i + self.batch_size]
-        x = np.zeros((self.batch_size,) + self.img_size, dtype="float32")
-        for j, path in enumerate(batch_input_img_paths):
-            img = Image.open(path)
-            arr = np.array(img.resize(self.img_size, resample=Image.NEAREST))
-            x[j] = normalize(arr)
-        y = np.zeros((self.batch_size,) + self.img_size, dtype="float32")
-        for j, path in enumerate(batch_label_img_paths):
-            img = Image.open(path)
-            arr = np.array(img.resize(self.img_size, resample=Image.NEAREST))
-            y[j] = normalize(arr, th=0.5)
-        return x, y
+def MyAugGenerator(batch_size, train_path, image_folder, mask_folder, aug_dict, target_size, seed = 101):
+    image_datagen = ImageDataGenerator(**aug_dict, preprocessing_function=normalize)
+    mask_datagen = ImageDataGenerator(**aug_dict, preprocessing_function=normalize)
+    image_generator = image_datagen.flow_from_directory(
+        train_path,
+        classes = [image_folder],
+        class_mode = None,
+        color_mode = 'grayscale',
+        target_size = target_size,
+        batch_size = batch_size,
+        seed = seed)
+    mask_generator = mask_datagen.flow_from_directory(
+        train_path,
+        classes = [mask_folder],
+        class_mode = None,
+        color_mode = 'grayscale',
+        target_size = target_size,
+        batch_size = batch_size,
+        seed = seed)
+    train_generator = zip(image_generator, mask_generator)
+    for (img, mask) in train_generator:
+        yield (img, mask)
