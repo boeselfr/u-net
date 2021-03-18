@@ -3,6 +3,7 @@ from PIL import Image
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras import backend as K
 from tensorflow.keras.utils import Sequence
+import os
 
 
 def weighted_bce(y_true, y_pred, weight1=1, weight0=1 ) :
@@ -23,9 +24,7 @@ def IoU(y_true, y_pred, smooth=1):
 def f1(y_true, y_pred):
     def recall(y_true, y_pred):
         """Recall metric.
-
         Only computes a batch-wise average of recall.
-
         Computes the recall, a metric for multi-label classification of
         how many relevant items are selected.
         """
@@ -36,9 +35,7 @@ def f1(y_true, y_pred):
 
     def precision(y_true, y_pred):
         """Precision metric.
-
         Only computes a batch-wise average of precision.
-
         Computes the precision, a metric for multi-label classification of
         how many selected items are relevant.
         """
@@ -51,7 +48,7 @@ def f1(y_true, y_pred):
     return 2*((precision*recall)/(precision+recall+K.epsilon()))
 
 
-def normalize(arr):
+def normalize_classif(arr):
     arr = arr[:, :, 0]
     arr_min = np.min(arr)
     arr_max = np.max(arr)
@@ -59,7 +56,20 @@ def normalize(arr):
         arr[True] = 0
     else:
         arr = arr / (arr_max-arr_min)
-    return arr.reshape([arr.shape[0], arr.shape[1], 1])
+    return arr.reshape([arr.shape[0], arr.shape[1], 3])
+
+
+def normalize(arr, th=None):
+    if np.min(arr) < 0:
+        arr -= np.min(arr)
+    arr_min = np.min(arr)
+    arr_max = np.max(arr)
+    if arr_max != 0:
+        arr = arr / (arr_max - arr_min)
+    if th:
+        arr[arr <= th] = 0
+        arr[arr > th] = 1
+    return arr
 
 
 class MyGenerator(Sequence):
@@ -91,25 +101,31 @@ class MyGenerator(Sequence):
         return x, y
 
 
-def MyAugGenerator(batch_size, train_path, image_folder, mask_folder, aug_dict, target_size, seed = 101):
-    image_datagen = ImageDataGenerator(**aug_dict, preprocessing_function=normalize)
-    mask_datagen = ImageDataGenerator(**aug_dict, preprocessing_function=normalize)
-    image_generator = image_datagen.flow_from_directory(
-        train_path,
-        classes = [image_folder],
-        class_mode = None,
-        color_mode = 'grayscale',
-        target_size = target_size,
-        batch_size = batch_size,
-        seed = seed)
-    mask_generator = mask_datagen.flow_from_directory(
-        train_path,
-        classes = [mask_folder],
-        class_mode = None,
-        color_mode = 'grayscale',
-        target_size = target_size,
-        batch_size = batch_size,
-        seed = seed)
-    train_generator = zip(image_generator, mask_generator)
-    for (img, mask) in train_generator:
-        yield (img, mask)
+class MyAugGenerator(Sequence):
+    def __init__(self, batch_size, train_path, image_folder, mask_folder, aug_dict, target_size, seed=101):
+        image_datagen = ImageDataGenerator(**aug_dict, preprocessing_function=normalize)
+        mask_datagen = ImageDataGenerator(**aug_dict, preprocessing_function=normalize)
+        self.image_generator = image_datagen.flow_from_directory(
+            train_path,
+            classes = [image_folder],
+            class_mode = None,
+            color_mode = 'grayscale',
+            target_size = target_size,
+            batch_size = batch_size,
+            seed = seed)
+        self.mask_generator = mask_datagen.flow_from_directory(
+            train_path,
+            classes = [mask_folder],
+            class_mode = None,
+            color_mode = 'grayscale',
+            target_size = target_size,
+            batch_size = batch_size,
+            seed = seed)
+
+    def __len__(self):
+        return self.image_generator.__len__()
+
+    def __getitem__(self, idx):
+        x = self.image_generator.__getitem__(idx)
+        y = self.mask_generator.__getitem__(idx)
+        return x, y
